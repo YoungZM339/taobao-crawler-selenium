@@ -116,6 +116,9 @@ except:
                                       'div.next-pagination.next-small.next-simple.next-no-border > div > span').text
     taobaoPage = re.findall('[^/]*$', taobaoPage)[0]
     tbPageVersion = 1
+    sale_desc_button = browser.find_element(By.CSS_SELECTOR,
+                                            '#sortBarWrap > div.SortBar--sortBarWrapTop--VgqKGi6 > div:nth-child(1) > div > div.next-tabs-bar.SortBar--customTab--OpWQmfy > div > div > div > ul > li:nth-child(2)')
+    sale_desc_button.click()
 
 # GUI提醒页面
 gui_text['text'] = f'目录检测到共计{taobaoPage}页'
@@ -144,7 +147,7 @@ for page in range(page_start, page_end):
     # 判断淘宝搜索页面版本
     if tbPageVersion == 0:
         browser.get(
-            f'https://s.taobao.com/search?_input_charset=utf-8&commend=all&ie=utf8&page=3&q={keyword}&search_type=item&source=suggest&sourceId=tb.index&spm=a21bo.jianhua.201856-taobao-item.2&ssid=s5-e&suggest=history_1&suggest_query=&wq=&s={(page - 1) * 44} ')
+            f'https://s.taobao.com/search?_input_charset=utf-8&commend=all&ie=utf8&page=3&q={keyword}&search_type=item&source=suggest&sourceId=tb.index&spm=a21bo.jianhua.201856-taobao-item.2&ssid=s5-e&suggest=history_1&suggest_query=&wq=&sort=sale-desc&s={(page - 1) * 44} ')
     elif tbPageVersion == 1:
         if page != page_start:
             next_page_button = browser.find_element(By.CSS_SELECTOR,
@@ -254,7 +257,7 @@ for page in range(page_start, page_end):
 gui_text['text'] = '正在导出xlsx'
 
 output_dataframe = pandas.DataFrame(output_list)
-output_dataframe.to_excel('淘宝爬取商品结果' + f'{time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())}' + '.xlsx',
+output_dataframe.to_excel('淘宝爬取商品结果销售量排序' + f'{time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())}' + '.xlsx',
                           index=False)
 gui_text['text'] = '保存文件完成，准备退出中'
 time.sleep(5)
