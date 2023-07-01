@@ -1,4 +1,3 @@
-import csv
 import sys
 import time
 import random
@@ -9,10 +8,10 @@ from threading import Thread
 import re
 import pandas
 
-f = open('./settings.ini', 'r+')
-CONST_KEY_WORD = str(f.readline())
-CONST_BEGIN_PAGE = int(f.readline())
-CONST_END_PAGE = int(f.readline())
+f = open('./settings.ini', 'r+', encoding='utf8')
+CONST_KEY_WORD = str(f.readline().strip())
+CONST_BEGIN_PAGE = int(f.readline().strip())
+CONST_END_PAGE = int(f.readline().strip())
 f.close()
 
 # CONST_KEY_WORD = str(input("请输入搜索的商品名称"))
@@ -29,12 +28,12 @@ tbPageVersion = 0
 
 
 # GUI函数
-def guiFunc():
+def gui_func():
     global gui_text
     global gui_label_now
     global gui_label_eta
     gui = tkinter.Tk()
-    gui.title('淘宝搜索页面爬取')
+    gui.title('淘宝搜索页面爬取---号外电商')
     gui['background'] = '#ffffff'
     gui.geometry("600x100-50+20")
     gui.attributes("-topmost", 1)
@@ -48,16 +47,17 @@ def guiFunc():
 
 
 # GUI线程控制
-Gui_thread = Thread(target=guiFunc, daemon=True)
+Gui_thread = Thread(target=gui_func, daemon=True)
 Gui_thread.start()
 time.sleep(2)
 
-# 启动浏览器
+# GUI提醒启动浏览器
 keyword = CONST_KEY_WORD
 gui_text['background'] = '#ffffff'
 gui_text['text'] = '正在启动浏览器'
-options = webdriver.ChromeOptions()
 
+# WebDriver防检测
+options = webdriver.ChromeOptions()
 options.add_experimental_option('excludeSwitches', ['enable-automation'])
 options.add_argument("--disable-blink-features")
 options.add_argument("--disable-blink-features=AutomationControlled")
@@ -66,66 +66,85 @@ browser = webdriver.Chrome(options=options)
 browser.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
     "source": """Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"""
 })
+
+# WebDriver控制打开页面
 browser.get('https://login.taobao.com/member/login.jhtml')
+
+# GUI提醒登录
 gui_text['background'] = '#ffffff'
+gui_text['text'] = '请尽快扫码登录淘宝，10秒后将尝试自动爬取'
+time.sleep(5)
+gui_text['text'] = '如有滑块认证请辅助滑块认证'
+time.sleep(5)
 
-# CSV相关
-csvfile = open(f'{keyword}_taobao_{time.strftime("%Y-%m-%d_%H-%M", time.localtime())}.csv', 'a', encoding='utf-8-sig',
-               newline='')
-csvWriter = csv.DictWriter(csvfile,
-                           fieldnames=['item_name', 'item_price', 'item_shop', 'shop_link', 'item_link'])
-csvWriter.writerow(
-    {'item_name': '商品名', 'item_price': '商品价格', 'item_shop': '店铺名称', 'shop_link': '店铺链接',
-     'item_link': '商品链接'})
-
-gui_text['text'] = '请尽快手机扫码登录淘宝，10秒后将尝试启动程序'
-time.sleep(10)
+# 循环检测是否成功登录
 while browser.title != '我的淘宝':
-    gui_text['text'] = '请确保已经登录淘宝，10秒后将再次尝试启动程序'
-    time.sleep(10)
-# 搜索词与页数获取
+    gui_text['text'] = '''请确保已经登录淘宝并在【我的淘宝】页面'''
+    gui_text['bg'] = 'red'
+    time.sleep(5)
+    gui_text['text'] = '''即将重新尝试自动爬取'''
+
+# 搜索词与页数管理
 gui_text['text'] = '正在操作'
+gui_text['background'] = '#ffffff'
 browser.get(f'https://s.taobao.com/search?q={keyword}')
+# GUI提醒：验证码拦截
 while browser.title == '验证码拦截':
     gui_text['text'] = f'出错：如有滑块验证请及时验证，程序将于验证后重新尝试爬取'
     gui_text['bg'] = 'red'
     gui_label_eta['text'] = '-'
     gui_label_now['text'] = f'-'
     time.sleep(2)
-browser.implicitly_wait(10)
+browser.implicitly_wait(5)
+gui_text['text'] = f'等待完全加载页面中'
+gui_text['background'] = '#f35315'
+
+# 检测淘宝新老搜索页面
 try:
     # 老版PC淘宝页面
     taobaoPage = browser.find_element(By.CSS_SELECTOR,
                                       '#J_relative > div.sort-row > div > div.pager > ul > li:nth-child(2)').text
     taobaoPage = re.findall('[^/]*$', taobaoPage)[0]
     tbPageVersion = 0
+
 except:
     # 新版PC淘宝页面
     taobaoPage = browser.find_element(By.CSS_SELECTOR,
-                                      '#sortBarWrap > div.SortBar--sortBarWrapTop--VgqKGi6 > div.SortBar--otherSelector--AGGxGw3 > div:nth-child(2) > div.next-pagination.next-small.next-simple.next-no-border > div > span').text
+                                      '#sortBarWrap > div.SortBar--sortBarWrapTop--VgqKGi6 > '
+                                      'div.SortBar--otherSelector--AGGxGw3 > div:nth-child(2) > '
+                                      'div.next-pagination.next-small.next-simple.next-no-border > div > span').text
     taobaoPage = re.findall('[^/]*$', taobaoPage)[0]
     tbPageVersion = 1
 
-# 爬取页数控制
-gui_text['text'] = '☞等待爬取页数'
+# GUI提醒页面
+gui_text['text'] = f'目录检测到共计{taobaoPage}页'
 gui_text['background'] = '#f35315'
-print(f'共计{taobaoPage}页,建议每2小时总计爬取不超过20页')
+time.sleep(2)
+
+# 页数控制
 page_start = int(CONST_BEGIN_PAGE)
 page_end = int(CONST_END_PAGE + 1) if int(CONST_END_PAGE + 1) < int(taobaoPage) else int(taobaoPage)
-time.sleep(5)
-gui_text['background'] = '#ffffff'
 
+# GUI提醒页面
+gui_text['text'] = f'将从{page_start}页爬取到{page_end - 1}页'
+gui_text['background'] = '#ffffff'
+time.sleep(2)
+
+# 输出列表准备
+output_list = []
+
+# 循环爬取程序
 for page in range(page_start, page_end):
     gui_text['text'] = f'当前正在获取第{page}页，还有{page_end - page_start - page}页'
     gui_text['bg'] = '#10d269'
-    gui_label_now['text'] = '-'
-    gui_label_eta['text'] = '-'
-    if (tbPageVersion == 0):
+    gui_label_now['text'] = '暂无数据'
+    gui_label_eta['text'] = '暂无数据'
+    if tbPageVersion == 0:
         browser.get(
             f'https://s.taobao.com/search?q={keyword}&commend=all&ssid=s5-e&search_type'
-            f'=item&sourceId=tb.index&spm=a21bo.jianhua.201856-taobao-item.2&ie=utf8&initiative_id=tbindexz_2017030'
+            f'=item&sourceId=tb.index&spm=a21bo.jianhua.201856-taobao-item.2&ie=utf8'
             f'6&&s={(page - 1) * 44} ')
-    if (tbPageVersion == 1):
+    elif tbPageVersion == 1:
         browser.get(f'https://s.taobao.com/search?q={keyword}&page={page}')
     while browser.title == '验证码拦截':
         gui_text['text'] = f'出错：如有滑块验证请及时验证，程序将于验证后重新尝试爬取'
@@ -151,20 +170,21 @@ for page in range(page_start, page_end):
                                                 'div.ctx-box.J_MouseEneterLeave.J_IconMoreNew > div.row.row-1.g-clearfix > div.price.g_price.g_price-highlight > strong').text
                 item_shop = goods.find_element(By.CSS_SELECTOR,
                                                'div.ctx-box.J_MouseEneterLeave.J_IconMoreNew > div.row.row-3.g-clearfix > div.shop > a > span:nth-child(2)').text
+                month_deals = goods.find_element(By.CSS_SELECTOR,
+                                                 'div.ctx-box.J_MouseEneterLeave.J_IconMoreNew > div.row.row-1.g-clearfix > div.deal-cnt').text.replace(
+                    '人付款', '')
+                ships_from = goods.find_element(By.CSS_SELECTOR,
+                                                'div.ctx-box.J_MouseEneterLeave.J_IconMoreNew > div.row.row-3.g-clearfix > div.location').text
                 shop_link = goods.find_element(By.CSS_SELECTOR,
                                                'div.ctx-box.J_MouseEneterLeave.J_IconMoreNew > div.row.row-3.g-clearfix > div.shop > a').get_attribute(
                     'href')
                 item_link = goods.find_element(By.CSS_SELECTOR,
                                                'div.pic-box.J_MouseEneterLeave.J_PicBox > div > div.pic>a').get_attribute(
                     'href')
-                try:
-                    b = shop_link.split('https://store.taobao.com/shop/view_shop.htm?user_number_id=')[1]
-                except:
-                    b = shop_link
-                csvWriter.writerow(
-                    {'item_name': item_name, 'item_price': item_price, 'item_shop': item_shop, 'shop_link': shop_link,
-                     'item_link': item_link})
-                csvfile.flush()
+                goods_item = {"商品名称": item_name, "商品价格": item_price, "月销售量": month_deals,
+                              "商品店铺名称": item_shop, "归属地": ships_from, "商品链接": item_link}
+                output_list += [goods_item]
+
         if tbPageVersion == 1:
             print('using new version selector')
             goods_arr = browser.find_elements(By.CSS_SELECTOR,
@@ -182,16 +202,29 @@ for page in range(page_start, page_end):
                 item_price = item_price_int + item_price_float
                 item_shop = goods.find_element(By.CSS_SELECTOR,
                                                f'div:nth-child({i})>a>div> div.ShopInfo--shopInfo--ORFs6rK  > div>a').text
+                month_deals = goods.find_element(By.CSS_SELECTOR,
+                                                 f'div:nth-child({i}) > a > div > div.Card--mainPicAndDesc--wvcDXaK > div.Price--priceWrapper--Q0Dn7pN > span.Price--realSales--FhTZc7U').text.replace(
+                    '人付款', '').replace('人收货', '')
+                ships_from_province = goods.find_element(By.CSS_SELECTOR,
+                                                         f'div:nth-child({i}) > a > div > div.Card--mainPicAndDesc--wvcDXaK > div.Price--priceWrapper--Q0Dn7pN > div:nth-child(5) > span').text
+                # 定位城市，由于有些没有城市属性所以需要try-except，但是很慢
+                # try:
+                #     ships_from_city = goods.find_element(By.CSS_SELECTOR,
+                #                                          f'div:nth-child({i}) > a > div > div.Card--mainPicAndDesc--wvcDXaK > div.Price--priceWrapper--Q0Dn7pN > div:nth-child(6) > span').text
+                # except:
+                #     ships_from_city = ''
+                ships_from_city = ''
+
                 shop_link = goods.find_element(By.CSS_SELECTOR,
                                                f'div:nth-child({i})>a>div> div.ShopInfo--shopInfo--ORFs6rK  > div>a').get_attribute(
                     'href')
                 item_link = goods.find_element(By.CSS_SELECTOR,
                                                f'div:nth-child({i})>a').get_attribute(
                     'href')
-                csvWriter.writerow(
-                    {'item_name': item_name, 'item_price': item_price, 'item_shop': item_shop, 'shop_link': shop_link,
-                     'item_link': item_link})
-                csvfile.flush()
+                goods_item = {"商品名称": item_name, "商品价格": item_price, "月销售量": month_deals,
+                              "商品店铺名称": item_shop, "归属地": ships_from_province + ' ' + ships_from_city,
+                              "商品链接": item_link}
+                output_list += [goods_item]
     except:
         # 拉取商品列表失败则提示需要验证
         gui_text['text'] = f'出错：如有滑块验证请及时验证，程序将于20秒后重新尝试爬取'
@@ -199,7 +232,7 @@ for page in range(page_start, page_end):
         gui_label_eta['text'] = '-'
         gui_label_now['text'] = f'注意:第<{page}>页将跳过如需获取请重新运行程序！'
         print(f'注意:第<{page}>页将跳过如需获取请重新运行程序！')
-        time.sleep(20)
+        time.sleep(5)
 
     delay_time = random.randint(1, 5)
     for delay in range(delay_time):
@@ -209,13 +242,10 @@ for page in range(page_start, page_end):
         gui_label_eta['text'] = f'等待下次翻页{delay}秒，总共需等待{delay_time}秒'
         time.sleep(1)
 
-print('程序结束')
-gui_text['text'] = '程序结束正在保存文件'
-csvfile.close()
 gui_text['text'] = '正在导出xlsx'
-results_dataframe = pandas.read_csv(csvfile.name)
-results_dataframe.to_excel('淘宝爬取商品结果' + f'{time.strftime("%Y-%m-%d_%H-%M", time.localtime())}' + '.xlsx',
-                           index=False)
+output_dataframe = pandas.DataFrame(output_list)
+output_dataframe.to_excel('淘宝爬取商品结果' + f'{time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())}' + '.xlsx',
+                          index=False)
 gui_text['text'] = '保存文件完成，准备退出中'
 time.sleep(5)
 browser.close()
