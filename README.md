@@ -1,5 +1,11 @@
 # 基于 Selenium 和 Tkinter 的爬取淘宝商品的Web自动化工具
+[![License](https://img.shields.io/github/license/youngzm339/taobao-crawler-selenium)](https://github.com/youngzm339/taobao-crawler-selenium/blob/master/LICENSE)
+[![Issues](https://img.shields.io/github/issues/youngzm339/taobao-crawler-selenium)](https://github.com/youngzm339/taobao-crawler-selenium/issues)
+[![Stars](https://img.shields.io/github/stars/youngzm339/taobao-crawler-selenium)](https://github.com/youngzm339/taobao-crawler-selenium)
 
+![](docs/imgs/selenium_badge.png)
+
+README of supported languages: [简体中文](./README.md)
 ## 使用指南
 ### 安装依赖
 1. 确保已经正确安装Python
